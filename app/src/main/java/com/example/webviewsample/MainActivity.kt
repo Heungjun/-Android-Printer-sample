@@ -5,10 +5,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
-import android.os.Build
-import android.os.Bundle
-import android.os.CancellationSignal
-import android.os.ParcelFileDescriptor
+import android.os.*
 import android.print.*
 import android.print.pdf.PrintedPdfDocument
 import android.util.Log
@@ -24,6 +21,8 @@ import java.io.IOException
 
 
 class MainActivity : AppCompatActivity() {
+    private var mWebView: WebView? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -32,8 +31,46 @@ class MainActivity : AppCompatActivity() {
         myWebView.settings.javaScriptEnabled = true;
 //        myWebView.loadUrl("http://192.168.2.113/PDA/hcm000")
         myWebView.loadUrl("http://gmdwns92.dothome.co.kr/")
-        myWebView.webViewClient = WebViewClient()
+        myWebView.webViewClient = object : WebViewClient() {
+            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = false
+        }
         myWebView.addJavascriptInterface(WebAppInterface(this, myWebView), "Android")
+    }
+
+    @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
+    fun createWebPrintJob(webView: WebView) {
+        Log.i("YHJ", "createWebPrintJob: ")
+        // Generate an HTML document on the fly:
+        val htmlDocument =
+            "<html><body><h1>Test Content</h1><p>Testing, testing, testing...</p></body></html>"
+//        webView.loadDataWithBaseURL(null, htmlDocument, "text/HTML", "UTF-8", null)
+
+        // Keep a reference to WebView object until you pass the PrintDocumentAdapter
+        // to the PrintManager
+        mWebView = webView
+
+        Log.i("YHJ", "start...")
+        // Get a PrintManager instance
+        (this?.getSystemService(Context.PRINT_SERVICE) as? PrintManager)?.let { printManager ->
+
+            val jobName = "${this.getString(R.string.app_name)} Document"
+
+            // Get a print adapter instance
+            val printAdapter = webView.createPrintDocumentAdapter(jobName)
+
+            // Create a print job with name and adapter instance
+            printManager.print(
+                jobName,
+                printAdapter,
+                PrintAttributes.Builder().build()
+            )
+//                .also { printJob ->
+
+            // Save the job object for later status checking
+//                printJobs += printJob
+//            }
+        }
+        Log.i("YHJ", "end...")
     }
 
 }
@@ -42,14 +79,25 @@ class WebAppInterface(private val mContext: Context, private val webView: WebVie
     /** Show a toast from the web page  */
     @JavascriptInterface
     fun showToast(toast: String) {
+        Log.i("YHJ", "LOG Test...")
         Toast.makeText(mContext, toast, Toast.LENGTH_SHORT).show()
     }
 
+    @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
     @JavascriptInterface
     fun printSampleTest(){
         Log.i("YHJ TEST", "Button Click!!")
-        doPrint()
-//        doWebViewPrint()
+//        doPrint()
+
+        val mainHandler: Handler = Handler(mContext.mainLooper)
+        Log.i("YHJ TEST", "var mainHandler create!")
+        var myRunnable: Runnable = Runnable {
+            Log.i("YHJ TEST", "Runnable:")
+            var callingClassFun: MainActivity = mContext as MainActivity
+            callingClassFun.createWebPrintJob(mContext.findViewById(R.id.sampleWebview))
+        }
+        mainHandler.post(myRunnable)
+        Log.i("YHJ TEST", "end printSampleTest")
     }
 
     private fun doPrint() {
@@ -65,57 +113,7 @@ class WebAppInterface(private val mContext: Context, private val webView: WebVie
         }
     }
 
-    private var mWebView: WebView? = null
 
-    private fun doWebViewPrint() {
-        // Create a WebView object specifically for printing
-        val webView = WebView(mContext)
-        webView.webViewClient = object : WebViewClient() {
-
-            override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest) = false
-
-            @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
-            override fun onPageFinished(view: WebView, url: String) {
-//                Log.i(TAG, "page finished loading $url")
-                createWebPrintJob(view)
-                mWebView = null
-            }
-        }
-
-        // Generate an HTML document on the fly:
-        val htmlDocument =
-            "<html><body><h1>Test Content</h1><p>Testing, testing, testing...</p></body></html>"
-        webView.loadDataWithBaseURL(null, htmlDocument, "text/HTML", "UTF-8", null)
-
-        // Keep a reference to WebView object until you pass the PrintDocumentAdapter
-        // to the PrintManager
-        mWebView = webView
-    }
-
-    @RequiresApi(Build.VERSION_CODES.LOLLIPOP)
-    private fun createWebPrintJob(webView: WebView) {
-
-        // Get a PrintManager instance
-        (mContext?.getSystemService(Context.PRINT_SERVICE) as? PrintManager)?.let { printManager ->
-
-            val jobName = "${mContext.getString(R.string.app_name)} Document"
-
-            // Get a print adapter instance
-            val printAdapter = webView.createPrintDocumentAdapter(jobName)
-
-            // Create a print job with name and adapter instance
-            printManager.print(
-                jobName,
-                printAdapter,
-                PrintAttributes.Builder().build()
-            )
-//                .also { printJob ->
-
-                // Save the job object for later status checking
-//                printJobs += printJob
-//            }
-        }
-    }
 
 }
 
