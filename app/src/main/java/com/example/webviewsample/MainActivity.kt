@@ -1,6 +1,7 @@
 package com.example.webviewsample
 
-import android.content.Context
+import android.app.AlertDialog
+import android.content.*
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -12,13 +13,13 @@ import android.os.ParcelFileDescriptor
 import android.print.*
 import android.print.pdf.PrintedPdfDocument
 import android.util.Log
-import android.webkit.JavascriptInterface
-import android.webkit.WebResourceRequest
-import android.webkit.WebView
-import android.webkit.WebViewClient
+import android.webkit.*
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.gms.tasks.OnCompleteListener
+import com.google.firebase.installations.FirebaseInstallations
+import com.google.firebase.messaging.FirebaseMessaging
 import java.io.FileOutputStream
 import java.io.IOException
 
@@ -30,12 +31,51 @@ class MainActivity : AppCompatActivity() {
 
         val myWebView: WebView = findViewById(R.id.sampleWebview)
         myWebView.settings.javaScriptEnabled = true;
+        myWebView.settings.domStorageEnabled = true
+
 //        myWebView.loadUrl("http://192.168.2.113/PDA/hcm000")
-        myWebView.loadUrl("http://gmdwns92.dothome.co.kr/")
+//        myWebView.loadUrl("http://gmdwns92.dothome.co.kr/")
+        myWebView.loadUrl("http://59.19.192.202")
+//        myWebView.loadUrl("http://192.168.0.233:4017")
         myWebView.webViewClient = WebViewClient()
         myWebView.addJavascriptInterface(WebAppInterface(this, myWebView), "Android")
+
+        FirebaseMessaging.getInstance().token.addOnCompleteListener(OnCompleteListener { task ->
+            if (!task.isSuccessful) {
+                Log.w("YHJ TEST", "Fetching FCM registration token failed", task.exception)
+                return@OnCompleteListener
+            }
+
+            // Get new FCM registration token
+            val token = task.result
+
+            // Log and toast
+            val msg = getString(R.string.msg_token_fmt, token)
+            Log.d("YHJ TEST", msg)
+//            Toast.makeText(baseContext, msg, Toast.LENGTH_SHORT).show()
+        })
+
+        FirebaseInstallations.getInstance().id.addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                Log.d("Installations", "Installation ID: " + task.result)
+            } else {
+                Log.e("Installations", "Unable to get Installation ID")
+            }
+        }
+
     }
 
+    fun showNotification(notificationMessage: String){
+        val alertDialogBuilder = AlertDialog.Builder(this)
+        alertDialogBuilder.setTitle("alert test")
+        alertDialogBuilder.setMessage(notificationMessage)
+        alertDialogBuilder.setPositiveButton("확인", DialogInterface.OnClickListener { dialog, which -> dialog.dismiss() })
+        alertDialogBuilder.show()
+    }
+
+    companion object {
+        private const val TAG = "MainActivity"
+    }
 }
 
 class WebAppInterface(private val mContext: Context, private val webView: WebView) {
